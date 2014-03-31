@@ -39,11 +39,11 @@ import com.google.inject.Singleton;
 
 
 /**
-* The implementation of {@link OpenProjectView}.
-* Provides selecting project what want to open.
-*
-* @author <a href="mailto:aplotnikov@exoplatform.com">Andrey Plotnikov</a>
-*/
+ * The implementation of {@link OpenProjectView}.
+ * Provides selecting project what want to open.
+ *
+ * @author <a href="mailto:aplotnikov@exoplatform.com">Andrey Plotnikov</a>
+ */
 @Singleton
 public class OpenProjectViewImpl extends Window implements OpenProjectView {
     private static OpenProjectViewImplUiBinder uiBinder = GWT.create(OpenProjectViewImplUiBinder.class);
