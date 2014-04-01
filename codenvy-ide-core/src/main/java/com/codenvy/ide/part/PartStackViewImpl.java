@@ -89,6 +89,7 @@ public class PartStackViewImpl extends Composite implements PartStackView {
     @Override
     public TabItem addTabButton(Image icon, String title, String toolTip, boolean closable) {
         TabButton tabItem = new TabButton(icon, title, toolTip, closable);
+        tabItem.ensureDebugId("partStackView-tabBut-" + title);
         tabsPanel.add(tabItem);
         tabs.add(tabItem);
         return tabItem;
