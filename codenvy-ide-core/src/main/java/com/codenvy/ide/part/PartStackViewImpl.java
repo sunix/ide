@@ -202,6 +202,7 @@ public class PartStackViewImpl extends Composite implements PartStackView {
                 image = new Image(resources.close());
                 image.setStyleName(resources.partStackCss().idePartStackTabCloseButton());
                 tabItem.add(image);
+                tabItem.ensureDebugId("777");
                 addHandlers();
             }
         }
