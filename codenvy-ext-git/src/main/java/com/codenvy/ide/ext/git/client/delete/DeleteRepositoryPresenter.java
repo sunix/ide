@@ -100,20 +100,8 @@ public class DeleteRepositoryPresenter {
         service.deleteRepository(project.getId(), new AsyncRequestCallback<Void>() {
             @Override
             protected void onSuccess(Void result) {
-                resourceProvider.getProject(project.getName(), new AsyncCallback<Project>() {
-                    @Override
-                    public void onSuccess(Project result) {
-                        project.setAttributes(result.getAttributes());
-                        Notification notification = new Notification(constant.deleteGitRepositorySuccess(), INFO);
-                        notificationManager.showNotification(notification);
-                        eventBus.fireEvent(new RefreshBrowserEvent(project));
-                    }
-
-                    @Override
-                    public void onFailure(Throwable caught) {
-                        Log.error(DeleteRepositoryPresenter.class, caught);
-                    }
-                });
+                Notification notification = new Notification(constant.deleteGitRepositorySuccess(), INFO);
+                notificationManager.showNotification(notification);
             }
 
             @Override
