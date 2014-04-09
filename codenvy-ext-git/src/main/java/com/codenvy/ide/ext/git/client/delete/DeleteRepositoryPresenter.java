@@ -102,6 +102,7 @@ public class DeleteRepositoryPresenter {
             protected void onSuccess(Void result) {
                 Notification notification = new Notification(constant.deleteGitRepositorySuccess(), INFO);
                 notificationManager.showNotification(notification);
+                eventBus.fireEvent(new RefreshBrowserEvent(project));
             }
 
             @Override
