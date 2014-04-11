@@ -96,15 +96,21 @@
 }
 
 .ide-PartStack-Boton-Left {
+    border-right: 1px solid tabBorder;
+    cursor: hand;
+    height: 18px;
+    display: inline-block;
+}
+
+.ide-PartStack-Boton-Left > svg {
     -webkit-transform: rotate(270deg);
     -moz-transform: rotate(270deg);
     transform: rotate(270deg);
     fill: toolbarIconColor;
-    filter: svgUrlShadow;
-    height: 18px;
-    width: 18px;
-    margin-left: -5px;
-    margin-right: -5px;
+    /*filter: svgUrlShadow;*/
+    height: 15px;
+    width: 15px;
+    margin: 1px -1px;
 }
 
 .ide-PartStack-Tab-Left {
