@@ -17,7 +17,6 @@
  */
 package com.codenvy.ide.ext.git.client.delete;
 
-import com.codenvy.ide.api.event.RefreshBrowserEvent;
 import com.codenvy.ide.api.notification.Notification;
 import com.codenvy.ide.api.notification.NotificationManager;
 import com.codenvy.ide.api.resources.ResourceProvider;
@@ -26,9 +25,7 @@ import com.codenvy.ide.ext.git.client.GitServiceClient;
 import com.codenvy.ide.ext.git.client.GitLocalizationConstant;
 import com.codenvy.ide.api.resources.model.Project;
 import com.codenvy.ide.rest.AsyncRequestCallback;
-import com.codenvy.ide.util.loging.Log;
 import com.google.gwt.user.client.Window;
-import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.google.web.bindery.event.shared.EventBus;
@@ -102,7 +99,6 @@ public class DeleteRepositoryPresenter {
             protected void onSuccess(Void result) {
                 Notification notification = new Notification(constant.deleteGitRepositorySuccess(), INFO);
                 notificationManager.showNotification(notification);
-                eventBus.fireEvent(new RefreshBrowserEvent(project));
             }
 
             @Override
