@@ -17,21 +17,32 @@
  */
 package com.codenvy.ide.ext.git.client.reset.commit;
 
+import com.codenvy.ide.api.editor.EditorAgent;
+import com.codenvy.ide.api.event.ActivePartChangedEvent;
+import com.codenvy.ide.api.event.ProjectActionEvent;
+import com.codenvy.ide.api.event.RefreshBrowserEvent;
+import com.codenvy.ide.api.event.ResourceChangedEvent;
 import com.codenvy.ide.api.notification.Notification;
 import com.codenvy.ide.api.notification.NotificationManager;
+import com.codenvy.ide.api.resources.FileEvent;
 import com.codenvy.ide.api.resources.ResourceProvider;
+import com.codenvy.ide.api.resources.model.File;
+import com.codenvy.ide.collections.Array;
+import com.codenvy.ide.collections.Collections;
 import com.codenvy.ide.ext.git.client.GitServiceClient;
 import com.codenvy.ide.ext.git.client.GitLocalizationConstant;
 import com.codenvy.ide.ext.git.shared.LogResponse;
 import com.codenvy.ide.ext.git.shared.ResetRequest;
 import com.codenvy.ide.ext.git.shared.Revision;
 import com.codenvy.ide.api.resources.model.Project;
+import com.codenvy.ide.navigation.NavigateToFilePresenter;
 import com.codenvy.ide.rest.AsyncRequestCallback;
 import com.codenvy.ide.rest.DtoUnmarshallerFactory;
 import com.codenvy.ide.util.loging.Log;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.google.web.bindery.event.shared.EventBus;
 
 import javax.validation.constraints.NotNull;
 
@@ -53,6 +64,9 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
     private       GitLocalizationConstant constant;
     private       NotificationManager     notificationManager;
     private       String                  projectId;
+    private       EditorAgent             editorAgent;
+    private       EventBus                eventBus;
+    private       NavigateToFilePresenter navigateToFilePresenter;
 
     /**
      * Create presenter.
@@ -66,7 +80,8 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
     @Inject
     public ResetToCommitPresenter(ResetToCommitView view, GitServiceClient service, ResourceProvider resourceProvider,
                                   GitLocalizationConstant constant, NotificationManager notificationManager,
-                                  DtoUnmarshallerFactory dtoUnmarshallerFactory) {
+                                  DtoUnmarshallerFactory dtoUnmarshallerFactory, EditorAgent editorAgent,
+                                  EventBus eventBus, NavigateToFilePresenter navigateToFilePresenter) {
         this.view = view;
         this.dtoUnmarshallerFactory = dtoUnmarshallerFactory;
         this.view.setDelegate(this);
@@ -74,6 +89,9 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         this.resourceProvider = resourceProvider;
         this.constant = constant;
         this.notificationManager = notificationManager;
+        this.editorAgent = editorAgent;
+        this.eventBus = eventBus;
+        this.navigateToFilePresenter = navigateToFilePresenter;
     }
 
     /** Show dialog. */
@@ -97,7 +115,8 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
                             Notification notification = new Notification(errorMessage, ERROR);
                             notificationManager.showNotification(notification);
                         }
-                    });
+                    }
+                   );
     }
 
     /** {@inheritDoc} */
@@ -116,6 +135,11 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
                               resourceProvider.getActiveProject().refreshChildren(new AsyncCallback<Project>() {
                                   @Override
                                   public void onSuccess(Project result) {
+                                      for (String key : editorAgent.getOpenedEditors().getKeys().asIterable()) {
+                                          File openFile = editorAgent.getOpenedEditors().get(key).getEditorInput().getFile();
+                                          eventBus.fireEvent(new FileEvent(openFile, FileEvent.FileOperation.CLOSE));
+                                          navigateToFilePresenter.openFile(openFile.getRelativePath());
+                                      }
                                       Notification notification = new Notification(constant.resetSuccessfully(), INFO);
                                       notificationManager.showNotification(notification);
                                   }
