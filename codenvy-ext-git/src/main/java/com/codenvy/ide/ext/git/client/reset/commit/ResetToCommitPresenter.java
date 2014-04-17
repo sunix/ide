@@ -18,26 +18,20 @@
 package com.codenvy.ide.ext.git.client.reset.commit;
 
 import com.codenvy.ide.api.editor.EditorAgent;
-import com.codenvy.ide.api.event.ActivePartChangedEvent;
-import com.codenvy.ide.api.event.ProjectActionEvent;
-import com.codenvy.ide.api.event.RefreshBrowserEvent;
-import com.codenvy.ide.api.event.ResourceChangedEvent;
 import com.codenvy.ide.api.notification.Notification;
 import com.codenvy.ide.api.notification.NotificationManager;
 import com.codenvy.ide.api.resources.FileEvent;
 import com.codenvy.ide.api.resources.ResourceProvider;
 import com.codenvy.ide.api.resources.model.File;
-import com.codenvy.ide.collections.Array;
-import com.codenvy.ide.collections.Collections;
 import com.codenvy.ide.ext.git.client.GitServiceClient;
 import com.codenvy.ide.ext.git.client.GitLocalizationConstant;
 import com.codenvy.ide.ext.git.shared.LogResponse;
 import com.codenvy.ide.ext.git.shared.ResetRequest;
 import com.codenvy.ide.ext.git.shared.Revision;
 import com.codenvy.ide.api.resources.model.Project;
-import com.codenvy.ide.navigation.NavigateToFilePresenter;
 import com.codenvy.ide.rest.AsyncRequestCallback;
 import com.codenvy.ide.rest.DtoUnmarshallerFactory;
+import com.codenvy.ide.rest.StringUnmarshaller;
 import com.codenvy.ide.util.loging.Log;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.inject.Inject;
@@ -46,8 +40,14 @@ import com.google.web.bindery.event.shared.EventBus;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import static com.codenvy.ide.api.notification.Notification.Type.ERROR;
 import static com.codenvy.ide.api.notification.Notification.Type.INFO;
+import static com.codenvy.ide.ext.git.shared.DiffRequest.DiffType.RAW;
 
 /**
  * Presenter for resetting head to commit.
@@ -66,7 +66,7 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
     private       String                  projectId;
     private       EditorAgent             editorAgent;
     private       EventBus                eventBus;
-    private       NavigateToFilePresenter navigateToFilePresenter;
+    private       String                  diff;
 
     /**
      * Create presenter.
@@ -81,7 +81,7 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
     public ResetToCommitPresenter(ResetToCommitView view, GitServiceClient service, ResourceProvider resourceProvider,
                                   GitLocalizationConstant constant, NotificationManager notificationManager,
                                   DtoUnmarshallerFactory dtoUnmarshallerFactory, EditorAgent editorAgent,
-                                  EventBus eventBus, NavigateToFilePresenter navigateToFilePresenter) {
+                                  EventBus eventBus) {
         this.view = view;
         this.dtoUnmarshallerFactory = dtoUnmarshallerFactory;
         this.view.setDelegate(this);
@@ -91,7 +91,6 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         this.notificationManager = notificationManager;
         this.editorAgent = editorAgent;
         this.eventBus = eventBus;
-        this.navigateToFilePresenter = navigateToFilePresenter;
     }
 
     /** Show dialog. */
@@ -128,6 +127,16 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         type = (type == null && view.isKeepMode()) ? ResetRequest.ResetType.KEEP : type;
         type = (type == null && view.isMergeMode()) ? ResetRequest.ResetType.MERGE : type;
 
+        final List<String> listOpenedFiles = new ArrayList<>();
+        final Map<String, File> openedFiles = new HashMap<>();
+        for (String key : editorAgent.getOpenedEditors().getKeys().asIterable()) {
+            File openFile = editorAgent.getOpenedEditors().get(key).getEditorInput().getFile();
+            openedFiles.put(openFile.getRelativePath(), openFile);
+            listOpenedFiles.add(openFile.getRelativePath());
+        }
+
+        getDiff(listOpenedFiles, selectedRevision.getId());
+
         service.reset(projectId, selectedRevision.getId(), type,
                       new AsyncRequestCallback<Void>() {
                           @Override
@@ -135,10 +144,19 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
                               resourceProvider.getActiveProject().refreshChildren(new AsyncCallback<Project>() {
                                   @Override
                                   public void onSuccess(Project result) {
-                                      for (String key : editorAgent.getOpenedEditors().getKeys().asIterable()) {
-                                          File openFile = editorAgent.getOpenedEditors().get(key).getEditorInput().getFile();
-                                          eventBus.fireEvent(new FileEvent(openFile, FileEvent.FileOperation.CLOSE));
-                                          navigateToFilePresenter.openFile(openFile.getRelativePath());
+                                      for (final File file : openedFiles.values()) {
+                                          String filePath = file.getRelativePath();
+                                          if (diff.contains(filePath)) {
+                                              int firstIndex = diff.indexOf(filePath);
+                                              int lastIndex = diff.lastIndexOf(filePath);
+                                              String between = diff.substring(firstIndex, lastIndex);
+
+                                              if (between.contains("new file mode")) {
+                                                  eventBus.fireEvent(new FileEvent(file, FileEvent.FileOperation.CLOSE));
+                                              } else {
+                                                  updateContent(file);
+                                              }
+                                          }
                                       }
                                       Notification notification = new Notification(constant.resetSuccessfully(), INFO);
                                       notificationManager.showNotification(notification);
@@ -158,7 +176,8 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
                               Notification notification = new Notification(errorMessage, ERROR);
                               notificationManager.showNotification(notification);
                           }
-                      });
+                      }
+                     );
     }
 
     /** {@inheritDoc} */
@@ -172,5 +191,48 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
     public void onRevisionSelected(@NotNull Revision revision) {
         selectedRevision = revision;
         view.setEnableResetButton(true);
+    }
+
+    private void getDiff(List<String> listFiles, String commit) {
+        String projectId = resourceProvider.getActiveProject().getId();
+        service.diff(projectId, listFiles, RAW, false, 0, commit, false,
+                     new AsyncRequestCallback<String>(new StringUnmarshaller()) {
+                         @Override
+                         protected void onSuccess(String result) {
+                             diff = result;
+                         }
+
+                         @Override
+                         protected void onFailure(Throwable exception) {
+                         }
+                     });
+    }
+
+    private void updateContent(final File file) {
+        final Project project = resourceProvider.getActiveProject();
+        if (project != null) {
+            final File fileWithDiff = (File)project.findResourceById(file.getId());
+
+            project.getContent(fileWithDiff, new AsyncCallback<File>() {
+                @Override
+                public void onFailure(Throwable caught) {
+
+                }
+
+                @Override
+                public void onSuccess(File result) {
+                    project.updateContent(result, new AsyncCallback<File>() {
+                        @Override
+                        public void onSuccess(File result) {
+                            eventBus.fireEvent(new FileEvent(result, FileEvent.FileOperation.SAVE));
+                        }
+
+                        @Override
+                        public void onFailure(Throwable caught) {
+                        }
+                    });
+                }
+            });
+        }
     }
 }
