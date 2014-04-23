@@ -19,6 +19,7 @@ package com.codenvy.ide.ext.git.client.reset.commit;
 
 import com.codenvy.ide.api.editor.EditorAgent;
 import com.codenvy.ide.api.editor.EditorInitException;
+import com.codenvy.ide.api.editor.EditorInput;
 import com.codenvy.ide.api.editor.EditorPartPresenter;
 import com.codenvy.ide.api.notification.Notification;
 import com.codenvy.ide.api.notification.NotificationManager;
@@ -28,6 +29,7 @@ import com.codenvy.ide.api.resources.model.File;
 import com.codenvy.ide.api.resources.model.Resource;
 import com.codenvy.ide.ext.git.client.GitServiceClient;
 import com.codenvy.ide.ext.git.client.GitLocalizationConstant;
+import com.codenvy.ide.ext.git.shared.DiffRequest;
 import com.codenvy.ide.ext.git.shared.LogResponse;
 import com.codenvy.ide.ext.git.shared.ResetRequest;
 import com.codenvy.ide.ext.git.shared.Revision;
@@ -48,7 +50,6 @@ import java.util.List;
 
 import static com.codenvy.ide.api.notification.Notification.Type.ERROR;
 import static com.codenvy.ide.api.notification.Notification.Type.INFO;
-import static com.codenvy.ide.ext.git.shared.DiffRequest.DiffType.RAW;
 
 /**
  * Presenter for resetting head to commit.
@@ -57,16 +58,16 @@ import static com.codenvy.ide.ext.git.shared.DiffRequest.DiffType.RAW;
  */
 @Singleton
 public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate {
-    private final DtoUnmarshallerFactory  dtoUnmarshallerFactory;
-    private       ResetToCommitView       view;
-    private       GitServiceClient        service;
-    private       Revision                selectedRevision;
-    private       ResourceProvider        resourceProvider;
-    private       GitLocalizationConstant constant;
-    private       NotificationManager     notificationManager;
-    private       String                  projectId;
-    private       EditorAgent             editorAgent;
-    private       EventBus                eventBus;
+    private final DtoUnmarshallerFactory    dtoUnmarshallerFactory;
+    private       ResetToCommitView         view;
+    private       GitServiceClient          service;
+    private       Revision                  selectedRevision;
+    private       ResourceProvider          resourceProvider;
+    private       GitLocalizationConstant   constant;
+    private       NotificationManager       notificationManager;
+    private       String                    projectId;
+    private       EditorAgent               editorAgent;
+    private       EventBus                  eventBus;
     private       List<EditorPartPresenter> openedEditors;
 
     /**
@@ -79,19 +80,23 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
      * @param notificationManager
      */
     @Inject
-    public ResetToCommitPresenter(ResetToCommitView view, GitServiceClient service, ResourceProvider resourceProvider,
-                                  GitLocalizationConstant constant, NotificationManager notificationManager,
-                                  DtoUnmarshallerFactory dtoUnmarshallerFactory, EditorAgent editorAgent,
-                                  EventBus eventBus) {
+    public ResetToCommitPresenter(ResetToCommitView view,
+                                  GitServiceClient service,
+                                  GitLocalizationConstant constant,
+                                  EventBus eventBus,
+                                  EditorAgent editorAgent,
+                                  ResourceProvider resourceProvider,
+                                  NotificationManager notificationManager,
+                                  DtoUnmarshallerFactory dtoUnmarshallerFactory) {
         this.view = view;
-        this.dtoUnmarshallerFactory = dtoUnmarshallerFactory;
         this.view.setDelegate(this);
         this.service = service;
-        this.resourceProvider = resourceProvider;
         this.constant = constant;
-        this.notificationManager = notificationManager;
-        this.editorAgent = editorAgent;
         this.eventBus = eventBus;
+        this.editorAgent = editorAgent;
+        this.resourceProvider = resourceProvider;
+        this.notificationManager = notificationManager;
+        this.dtoUnmarshallerFactory = dtoUnmarshallerFactory;
     }
 
     /** Show dialog. */
@@ -135,7 +140,9 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         getDiff(listOpenedFiles, selectedRevision.getId(), new AsyncCallback<String>() {
             @Override
             public void onFailure(Throwable caught) {
-                Log.error(ResetToCommitPresenter.class, "can not get diff for commit " + selectedRevision.getId());
+                String errorMessage = caught.getMessage() != null ? caught.getMessage() : constant.diffFailed();
+                Notification notification = new Notification(errorMessage, ERROR);
+                notificationManager.showNotification(notification);
             }
 
             @Override
@@ -158,22 +165,38 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         view.setEnableResetButton(true);
     }
 
+    /**
+     * Compare commit to reset with working tree, get the diff for pointed file(s) in text format.
+     *
+     * @param listFiles
+     *         files for which to get changes
+     * @param commit
+     *         commit to compare
+     * @param callback
+     */
     private void getDiff(List<String> listFiles, final String commit, final AsyncCallback<String> callback) {
         String projectId = resourceProvider.getActiveProject().getId();
-        service.diff(projectId, listFiles, RAW, true, 10, commit, false, new AsyncRequestCallback<String>(new StringUnmarshaller()) {
-            @Override
-            protected void onSuccess(String diff) {
-                callback.onSuccess(diff);
-            }
+        service.diff(projectId, listFiles, DiffRequest.DiffType.RAW, true, 0, commit, false,
+                     new AsyncRequestCallback<String>(new StringUnmarshaller()) {
+                         @Override
+                         protected void onSuccess(String diff) {
+                             callback.onSuccess(diff);
+                         }
 
-            @Override
-            protected void onFailure(Throwable exception) {
-                callback.onFailure(exception);
-            }
-        });
+                         @Override
+                         protected void onFailure(Throwable exception) {
+                             callback.onFailure(exception);
+                         }
+                     });
     }
 
-    private void reset(final String diff){
+    /**
+     * Reset current HEAD to the specified state and refresh project in the success case.
+     *
+     * @param diff
+     *         diff between the specified state and current state for pointed file(s) in text format.
+     */
+    private void reset(final String diff) {
         ResetRequest.ResetType type = view.isMixMode() ? ResetRequest.ResetType.MIXED : null;
         type = (type == null && view.isSoftMode()) ? ResetRequest.ResetType.SOFT : type;
         type = (type == null && view.isHardMode()) ? ResetRequest.ResetType.HARD : type;
@@ -184,6 +207,10 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
             @Override
             protected void onSuccess(Void result) {
                 refreshProject(diff);
+
+                Notification notification = new Notification(constant.resetSuccessfully(), INFO);
+                notificationManager.showNotification(notification);
+
             }
 
             @Override
@@ -195,7 +222,13 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         });
     }
 
-    private void refreshProject(final String diff){
+    /**
+     * Refresh project.
+     *
+     * @param diff
+     *         diff between the specified state and current state for pointed file(s) in text format.
+     */
+    private void refreshProject(final String diff) {
         resourceProvider.getActiveProject().refreshChildren(new AsyncCallback<Project>() {
             @Override
             public void onSuccess(Project result) {
@@ -217,8 +250,6 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
                             refreshFile(file, partPresenter);
                         }
                     }
-                    Notification notification = new Notification(constant.resetSuccessfully(), INFO);
-                    notificationManager.showNotification(notification);
                 }
             }
 
@@ -229,28 +260,48 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         });
     }
 
-    private void refreshFile(final File file, final EditorPartPresenter partPresenter){
+    /**
+     * Refresh file.
+     *
+     * @param file
+     *         file to refresh
+     * @param partPresenter
+     *        editor that corresponds to the <code>file</code>.
+     */
+    private void refreshFile(final File file, final EditorPartPresenter partPresenter) {
         final Project project = resourceProvider.getActiveProject();
         project.findResourceByPath(file.getPath(), new AsyncCallback<Resource>() {
             @Override
             public void onFailure(Throwable caught) {
-                Log.error(ResetToCommitPresenter.class, "can not find file " + file.getPath());
+                String errorMessage = (caught.getMessage() != null) ? caught.getMessage() : constant.findResourceFailed();
+                Notification notification = new Notification(errorMessage, ERROR);
+                notificationManager.showNotification(notification);
             }
 
             @Override
             public void onSuccess(final Resource result) {
-                updateOpenedFile((File) result, partPresenter);
+                updateOpenedFile((File)result, partPresenter);
             }
         });
     }
 
+    /**
+     * Update content of the file.
+     *
+     * @param file
+     *         file to update
+     * @param partPresenter
+     *        editor that corresponds to the <code>file</code>.
+     */
     private void updateOpenedFile(final File file, final EditorPartPresenter partPresenter) {
         resourceProvider.getActiveProject().getContent(file, new AsyncCallback<File>() {
             @Override
             public void onSuccess(File result) {
                 try {
-                    partPresenter.getEditorInput().setFile(result);
-                    partPresenter.init(partPresenter.getEditorInput());
+                    EditorInput editorInput = partPresenter.getEditorInput();
+
+                    editorInput.setFile(result);
+                    partPresenter.init(editorInput);
 
                 } catch (EditorInitException event) {
                     Log.error(ResetToCommitPresenter.class, "can not initializes the editor with the given input " + event);
@@ -259,7 +310,9 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
 
             @Override
             public void onFailure(Throwable caught) {
-                Log.error(ResetToCommitPresenter.class, "can not get content for file " + file.getRelativePath());
+                String errorMessage = (caught.getMessage() != null) ? caught.getMessage() : constant.getContentFailed();
+                Notification notification = new Notification(errorMessage, ERROR);
+                notificationManager.showNotification(notification);
             }
         });
     }
