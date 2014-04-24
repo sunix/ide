@@ -15,7 +15,7 @@
  * is strictly forbidden unless prior written permission is obtained
  * from Codenvy S.A..
  */
-package com.codenvy.ide.extension.runner.client;
+package com.codenvy.ide.extension.runner.client.run;
 
 import com.codenvy.api.core.rest.shared.dto.Link;
 import com.codenvy.api.core.rest.shared.dto.ServiceError;
@@ -23,17 +23,21 @@ import com.codenvy.api.runner.ApplicationStatus;
 import com.codenvy.api.runner.dto.ApplicationProcessDescriptor;
 import com.codenvy.api.runner.dto.DebugMode;
 import com.codenvy.api.runner.dto.RunOptions;
+import com.codenvy.api.runner.dto.RunnerEnvironment;
 import com.codenvy.api.runner.gwt.client.RunnerServiceClient;
 import com.codenvy.ide.api.event.ProjectActionEvent;
 import com.codenvy.ide.api.event.ProjectActionHandler;
 import com.codenvy.ide.api.notification.Notification;
 import com.codenvy.ide.api.notification.NotificationManager;
-import com.codenvy.ide.api.parts.ConsolePart;
 import com.codenvy.ide.api.resources.ResourceProvider;
 import com.codenvy.ide.api.resources.model.Project;
 import com.codenvy.ide.api.ui.workspace.WorkspaceAgent;
 import com.codenvy.ide.commons.exception.ServerException;
 import com.codenvy.ide.dto.DtoFactory;
+import com.codenvy.ide.extension.runner.client.ProjectRunCallback;
+import com.codenvy.ide.extension.runner.client.RunnerLocalizationConstant;
+import com.codenvy.ide.extension.runner.client.console.RunnerConsolePresenter;
+import com.codenvy.ide.extension.runner.client.update.UpdateServiceClient;
 import com.codenvy.ide.rest.AsyncRequestCallback;
 import com.codenvy.ide.rest.DtoUnmarshallerFactory;
 import com.codenvy.ide.rest.StringUnmarshaller;
@@ -66,7 +70,7 @@ public class RunnerController implements Notification.OpenNotificationHandler {
     private       MessageBus                   messageBus;
     private       WorkspaceAgent               workspaceAgent;
     private       ResourceProvider             resourceProvider;
-    private       ConsolePart                  console;
+    private       RunnerConsolePresenter       console;
     private       RunnerServiceClient          service;
     private       UpdateServiceClient          updateService;
     private       RunnerLocalizationConstant   constant;
@@ -77,7 +81,7 @@ public class RunnerController implements Notification.OpenNotificationHandler {
     private       ApplicationProcessDescriptor applicationProcessDescriptor;
     /** Handler for processing Maven build status which is received over WebSocket connection. */
     private       SubscriptionHandler<String>  runStatusHandler;
-    /** Is launching of any application in progress? */
+    /** Determines whether any application is launched. */
     private       boolean                      isLaunchingInProgress;
     private       ProjectRunCallback           runCallback;
 
@@ -91,11 +95,11 @@ public class RunnerController implements Notification.OpenNotificationHandler {
      * @param workspaceAgent
      *         {@link com.codenvy.ide.api.ui.workspace.WorkspaceAgent}
      * @param console
-     *         {@link com.codenvy.ide.api.parts.ConsolePart}
+     *         {@link com.codenvy.ide.extension.runner.client.console.RunnerConsolePresenter}
      * @param service
      *         {@link com.codenvy.api.runner.gwt.client.RunnerServiceClient}
      * @param updateService
-     *         {@link com.codenvy.ide.extension.runner.client.UpdateServiceClient}
+     *         {@link com.codenvy.ide.extension.runner.client.update.UpdateServiceClient}
      * @param constant
      *         {@link com.codenvy.ide.extension.runner.client.RunnerLocalizationConstant}
      * @param notificationManager
@@ -105,7 +109,7 @@ public class RunnerController implements Notification.OpenNotificationHandler {
     public RunnerController(ResourceProvider resourceProvider,
                             EventBus eventBus,
                             WorkspaceAgent workspaceAgent,
-                            final ConsolePart console,
+                            final RunnerConsolePresenter console,
                             RunnerServiceClient service,
                             UpdateServiceClient updateService,
                             RunnerLocalizationConstant constant,
@@ -149,7 +153,7 @@ public class RunnerController implements Notification.OpenNotificationHandler {
     }
 
     /**
-     * Check whether any application is launched.
+     * Determines whether any application is launched.
      *
      * @return <code>true</code> if any application is launched, and <code>false</code> otherwise
      */
@@ -157,18 +161,23 @@ public class RunnerController implements Notification.OpenNotificationHandler {
         return isLaunchingInProgress;
     }
 
-    /**
-     * Run project which is currently active.
-     *
-     * @param debug
-     *         if <code>true</code> - run in debug mode
-     */
-    public void runActiveProject(boolean debug) {
-        runActiveProject(debug, null);
+    /** Run active project. */
+    public void runActiveProject() {
+        runActiveProject(null, false, null);
     }
 
     /**
-     * Run project which is currently active.
+     * Run active project, specifying environment.
+     *
+     * @param environment
+     *         environment which will be used to run project
+     */
+    public void runActiveProject(RunnerEnvironment environment) {
+        runActiveProject(environment, false, null);
+    }
+
+    /**
+     * Run active project.
      *
      * @param debug
      *         if <code>true</code> - run in debug mode
@@ -176,6 +185,20 @@ public class RunnerController implements Notification.OpenNotificationHandler {
      *         callback that will be notified when project will be run
      */
     public void runActiveProject(boolean debug, final ProjectRunCallback callback) {
+        runActiveProject(null, debug, callback);
+    }
+
+    /**
+     * Run active project.
+     *
+     * @param environment
+     *         environment which will be used to run project
+     * @param debug
+     *         if <code>true</code> - run in debug mode
+     * @param callback
+     *         callback that will be notified when project will be run
+     */
+    public void runActiveProject(RunnerEnvironment environment, boolean debug, final ProjectRunCallback callback) {
         project = resourceProvider.getActiveProject();
         if (project == null) {
             Window.alert("Project is not opened.");
@@ -186,19 +209,19 @@ public class RunnerController implements Notification.OpenNotificationHandler {
             return;
         }
 
-        runCallback = callback;
         isLaunchingInProgress = true;
         notification = new Notification(constant.applicationStarting(project.getName()), PROGRESS, RunnerController.this);
         notificationManager.showNotification(notification);
+        runCallback = callback;
 
         RunOptions runOptions = dtoFactory.createDto(RunOptions.class);
         if (debug) {
             runOptions.setDebugMode(dtoFactory.createDto(DebugMode.class).withMode("default"));
         }
-        runActiveProject(runOptions);
-    }
+        if (environment != null) {
+            runOptions.setEnvironmentId(environment.getId());
+        }
 
-    private void runActiveProject(RunOptions runOptions) {
         service.run(project.getPath(), runOptions,
                     new AsyncRequestCallback<ApplicationProcessDescriptor>(
                             dtoUnmarshallerFactory.newUnmarshaller(ApplicationProcessDescriptor.class)) {
@@ -308,7 +331,6 @@ public class RunnerController implements Notification.OpenNotificationHandler {
         console.print(message);
     }
 
-
     /**
      * Starts checking job status by subscribing on receiving
      * messages over WebSocket or scheduling task to check status.
@@ -321,6 +343,7 @@ public class RunnerController implements Notification.OpenNotificationHandler {
             @Override
             protected void onMessageReceived(String result) {
                 ApplicationProcessDescriptor newAppDescriptor = dtoFactory.createDtoFromJson(result, ApplicationProcessDescriptor.class);
+                applicationProcessDescriptor = newAppDescriptor;
                 ApplicationStatus status = newAppDescriptor.getStatus();
                 if (status == ApplicationStatus.RUNNING) {
                     afterApplicationLaunched(newAppDescriptor);
