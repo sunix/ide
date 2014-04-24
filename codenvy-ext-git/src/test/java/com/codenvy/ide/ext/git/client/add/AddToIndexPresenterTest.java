@@ -26,7 +26,6 @@ import com.codenvy.ide.api.resources.model.Folder;
 import com.codenvy.ide.api.resources.model.Project;
 import com.codenvy.ide.websocket.WebSocketException;
 import com.codenvy.ide.websocket.rest.RequestCallback;
-import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.googlecode.gwt.test.utils.GwtReflectionUtils;
 
 import org.junit.Test;
@@ -134,16 +133,7 @@ public class AddToIndexPresenterTest extends BaseTest {
             }
         }).when(service).addWS((Project)anyObject(), anyBoolean(), (List<String>)anyObject(),
                                (RequestCallback<Void>)anyObject());
-        doAnswer(new Answer() {
-            @Override
-            public Object answer(InvocationOnMock invocation) throws Throwable {
-                Object[] arguments = invocation.getArguments();
-                AsyncCallback<Project> callback = (AsyncCallback<Project>)arguments[1];
-                Method onSuccess = GwtReflectionUtils.getMethod(callback.getClass(), "onSuccess");
-                onSuccess.invoke(callback, project);
-                return callback;
-            }
-        }).when(resourceProvider).getProject(anyString(), (AsyncCallback<Project>)anyObject());
+
         when(project.getName()).thenReturn(PROJECT_NAME);
         when(view.isUpdated()).thenReturn(NEED_UPDATING);
         when(constant.addSuccess()).thenReturn(MESSAGE);
@@ -155,7 +145,6 @@ public class AddToIndexPresenterTest extends BaseTest {
         verify(view).close();
         verify(service).addWS(eq(project), eq(NEED_UPDATING), (List<String>)anyObject(),
                               (RequestCallback<Void>)anyObject());
-        verify(resourceProvider).getProject(eq(PROJECT_NAME), (AsyncCallback<Project>)anyObject());
         verify(notificationManager).showNotification((Notification)anyObject());
         verify(constant).addSuccess();
     }
