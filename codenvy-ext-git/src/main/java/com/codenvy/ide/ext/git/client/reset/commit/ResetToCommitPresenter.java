@@ -203,11 +203,16 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
         type = (type == null && view.isKeepMode()) ? ResetRequest.ResetType.KEEP : type;
         type = (type == null && view.isMergeMode()) ? ResetRequest.ResetType.MERGE : type;
 
-        service.reset(projectId, selectedRevision.getId(), type, new AsyncRequestCallback<Void>() {
+        final ResetRequest.ResetType finalType = type;
+        service.reset(projectId, selectedRevision.getId(), finalType, new AsyncRequestCallback<Void>() {
             @Override
             protected void onSuccess(Void result) {
-                refreshProject(diff);
 
+                if(ResetRequest.ResetType.HARD.equals(finalType) || ResetRequest.ResetType.MERGE.equals(finalType)) {
+                    //Only in the cases of <code>ResetRequest.ResetType.HARD</code>  or <code>ResetRequest.ResetType.MERGE</code>
+                    // must change the workdir
+                    refreshProject(diff);
+                }
                 Notification notification = new Notification(constant.resetSuccessfully(), INFO);
                 notificationManager.showNotification(notification);
 
