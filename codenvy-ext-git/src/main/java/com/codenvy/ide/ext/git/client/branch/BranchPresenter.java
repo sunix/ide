@@ -214,7 +214,9 @@ public class BranchPresenter implements BranchView.ActionDelegate {
 
             @Override
             public void onFailure(Throwable caught) {
-                Log.error(BranchPresenter.class, "can not refresh children for project");
+                String errorMessage = (caught.getMessage() != null) ? caught.getMessage() : constant.refreshChildrenFailed();
+                Notification notification = new Notification(errorMessage, ERROR);
+                notificationManager.showNotification(notification);
             }
         });
     }
