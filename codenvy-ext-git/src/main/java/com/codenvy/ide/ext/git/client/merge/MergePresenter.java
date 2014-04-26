@@ -243,7 +243,9 @@ public class MergePresenter implements MergeView.ActionDelegate {
         project.findResourceByPath(file.getPath(), new AsyncCallback<Resource>() {
             @Override
             public void onFailure(Throwable caught) {
-                eventBus.fireEvent(new FileEvent(file, FileEvent.FileOperation.CLOSE));
+                String errorMessage = (caught.getMessage() != null) ? caught.getMessage() : constant.findResourceFailed();
+                Notification notification = new Notification(errorMessage, ERROR);
+                notificationManager.showNotification(notification);
             }
 
             @Override
