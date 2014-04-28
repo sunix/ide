@@ -23,7 +23,6 @@ import com.codenvy.ide.api.editor.EditorInput;
 import com.codenvy.ide.api.editor.EditorPartPresenter;
 import com.codenvy.ide.api.notification.Notification;
 import com.codenvy.ide.api.notification.NotificationManager;
-import com.codenvy.ide.api.resources.FileEvent;
 import com.codenvy.ide.api.resources.ResourceProvider;
 import com.codenvy.ide.api.resources.model.File;
 import com.codenvy.ide.api.resources.model.Resource;
@@ -70,7 +69,6 @@ public class MergePresenter implements MergeView.ActionDelegate {
     private       GitLocalizationConstant constant;
     private       String                  projectId;
     private       EditorAgent             editorAgent;
-    private       String                  projectName;
     private       ResourceProvider        resourceProvider;
     private       Reference               selectedReference;
     private       NotificationManager     notificationManager;
@@ -110,7 +108,6 @@ public class MergePresenter implements MergeView.ActionDelegate {
     public void showDialog() {
         Project project = resourceProvider.getActiveProject();
         projectId = project.getId();
-        projectName = project.getName();
         selectedReference = null;
         view.setEnableMergeButton(false);
 
