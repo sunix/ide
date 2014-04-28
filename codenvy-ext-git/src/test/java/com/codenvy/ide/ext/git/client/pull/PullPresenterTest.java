@@ -277,7 +277,7 @@ public class PullPresenterTest extends BaseTest {
                 onSuccess.invoke(callback, EMPTY_TEXT);
                 return callback;
             }
-        }).when(service).pullWS((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
+        }).when(service).pull((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
 
         doAnswer(new Answer() {
             @Override
@@ -316,7 +316,7 @@ public class PullPresenterTest extends BaseTest {
         verify(view).getRepositoryUrl();
         verify(view).close();
         verify(editorAgent).getOpenedEditors();
-        verify(service).pullWS(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
+        verify(service).pull(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
         verify(notificationManager).showNotification((Notification)anyObject());
         verify(constant).pullSuccess(eq(REMOTE_URI));
         verify(resourceProvider).getActiveProject();
@@ -340,7 +340,7 @@ public class PullPresenterTest extends BaseTest {
                 onSuccess.invoke(callback, EMPTY_TEXT);
                 return callback;
             }
-        }).when(service).pullWS((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
+        }).when(service).pull((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
 
         doAnswer(new Answer() {
             @Override
@@ -359,7 +359,7 @@ public class PullPresenterTest extends BaseTest {
         verify(view).getRepositoryUrl();
         verify(view).close();
         verify(editorAgent).getOpenedEditors();
-        verify(service).pullWS(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
+        verify(service).pull(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
         verify(constant).pullSuccess(eq(REMOTE_URI));
         verify(resourceProvider).getActiveProject();
         verify(project).refreshChildren((AsyncCallback<Project>)anyObject());
@@ -381,7 +381,7 @@ public class PullPresenterTest extends BaseTest {
                 onSuccess.invoke(callback, EMPTY_TEXT);
                 return callback;
             }
-        }).when(service).pullWS((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
+        }).when(service).pull((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
 
         doAnswer(new Answer() {
             @Override
@@ -410,7 +410,7 @@ public class PullPresenterTest extends BaseTest {
         verify(view).getRepositoryUrl();
         verify(view).close();
         verify(editorAgent).getOpenedEditors();
-        verify(service).pullWS(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
+        verify(service).pull(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
         verify(notificationManager, times(2)).showNotification((Notification)anyObject());
         verify(constant).pullSuccess(eq(REMOTE_URI));
         verify(resourceProvider).getActiveProject();
@@ -435,7 +435,7 @@ public class PullPresenterTest extends BaseTest {
                 onSuccess.invoke(callback, EMPTY_TEXT);
                 return callback;
             }
-        }).when(service).pullWS((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
+        }).when(service).pull((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
 
         doAnswer(new Answer() {
             @Override
@@ -474,7 +474,7 @@ public class PullPresenterTest extends BaseTest {
         verify(view).getRepositoryUrl();
         verify(view).close();
         verify(editorAgent).getOpenedEditors();
-        verify(service).pullWS(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
+        verify(service).pull(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
         verify(notificationManager, times(2)).showNotification((Notification)anyObject());
         verify(constant).pullSuccess(eq(REMOTE_URI));
         verify(resourceProvider).getActiveProject();
@@ -499,12 +499,12 @@ public class PullPresenterTest extends BaseTest {
                 onFailure.invoke(callback, mock(Throwable.class));
                 return callback;
             }
-        }).when(service).pullWS((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
+        }).when(service).pull((Project)anyObject(), anyString(), anyString(), (RequestCallback<String>)anyObject());
 
         presenter.showDialog();
         presenter.onPullClicked();
 
-        verify(service).pullWS(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
+        verify(service).pull(eq(project), anyString(), eq(REPOSITORY_NAME), (RequestCallback<String>)anyObject());
         verify(view).close();
         verify(constant).pullFail(eq(REMOTE_URI));
         verify(notificationManager).showNotification((Notification)anyObject());

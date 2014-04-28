@@ -237,7 +237,7 @@ public class PullPresenter implements PullView.ActionDelegate {
         }
 
         try {
-            service.pullWS(project, getRefs(), remoteName, new RequestCallback<String>() {
+            service.pull(project, getRefs(), remoteName, new RequestCallback<String>() {
                 @Override
                 protected void onSuccess(String result) {
                     Notification notification = new Notification(constant.pullSuccess(remoteUrl), INFO);
