@@ -59,6 +59,7 @@ public class PushToRemotePresenter implements PushToRemoteView.ActionDelegate {
     private       GitLocalizationConstant constant;
     private       NotificationManager     notificationManager;
     private       Project                 project;
+    private       Branch                  currentBranch;
 
     /**
      * Create presenter.
@@ -99,7 +100,7 @@ public class PushToRemotePresenter implements PushToRemoteView.ActionDelegate {
                            new AsyncRequestCallback<Array<Remote>>(dtoUnmarshallerFactory.newArrayUnmarshaller(Remote.class)) {
                                @Override
                                protected void onSuccess(Array<Remote> result) {
-                                   getBranches(projectId, LIST_REMOTE);
+                                   getBranches(projectId, LIST_LOCAL);
                                    view.setEnablePushButton(!result.isEmpty());
                                    view.setRepositories(result);
                                    view.showDialog();
@@ -128,18 +129,25 @@ public class PushToRemotePresenter implements PushToRemoteView.ActionDelegate {
                            new AsyncRequestCallback<Array<Branch>>(dtoUnmarshallerFactory.newArrayUnmarshaller(Branch.class)) {
                                @Override
                                protected void onSuccess(Array<Branch> result) {
-                                   if (LIST_REMOTE.equals(remoteMode)) {
-                                       view.setRemoteBranches(getRemoteBranchesToDisplay(view.getRepository(), result));
-                                       getBranches(projectId, LIST_LOCAL);
-                                   } else {
-                                       view.setLocalBranches(getLocalBranchesToDisplay(result));
+                                   if(!LIST_REMOTE.equals(remoteMode)) {
+                                       Array<String> localBranches = getLocalBranchesToDisplay(result);
+                                       view.setLocalBranches(localBranches);
+
                                        for (Branch branch : result.asIterable()) {
-                                           if (branch.isActive()) {
-                                               view.selectLocalBranch(branch.getDisplayName());
-                                               break;
-                                           }
-                                       }
-                                   }
+                                            if (branch.isActive()) {
+                                                view.selectLocalBranch(branch.getDisplayName());
+                                                currentBranch = branch;
+                                                break;
+                                            }
+                                        }
+                                       getBranches(projectId, LIST_REMOTE);
+                                    } else {
+                                       Array<String> remoteBranches = getRemoteBranchesToDisplay(view.getRepository(), result);
+                                       // Need to add the current local branch in the list of remote branches
+                                       // to be able to push changes to the remote branch  with same name
+                                       remoteBranches.add(currentBranch.getDisplayName());
+                                       view.setRemoteBranches(remoteBranches);
+                                    }
                                }
 
                                @Override
