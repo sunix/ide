@@ -59,7 +59,6 @@ public class PushToRemotePresenter implements PushToRemoteView.ActionDelegate {
     private       GitLocalizationConstant constant;
     private       NotificationManager     notificationManager;
     private       Project                 project;
-    private       Branch                  currentBranch;
 
     /**
      * Create presenter.
@@ -136,7 +135,6 @@ public class PushToRemotePresenter implements PushToRemoteView.ActionDelegate {
                                        for (Branch branch : result.asIterable()) {
                                             if (branch.isActive()) {
                                                 view.selectLocalBranch(branch.getDisplayName());
-                                                currentBranch = branch;
                                                 break;
                                             }
                                         }
@@ -145,7 +143,10 @@ public class PushToRemotePresenter implements PushToRemoteView.ActionDelegate {
                                        Array<String> remoteBranches = getRemoteBranchesToDisplay(view.getRepository(), result);
                                        // Need to add the current local branch in the list of remote branches
                                        // to be able to push changes to the remote branch  with same name
-                                       remoteBranches.add(currentBranch.getDisplayName());
+                                       String currentBranch = view.getLocalBranch();
+                                           if (!remoteBranches.contains(currentBranch)) {
+                                               remoteBranches.add(currentBranch);
+                                           }
                                        view.setRemoteBranches(remoteBranches);
                                     }
                                }
